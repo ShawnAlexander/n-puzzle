@@ -25,6 +25,21 @@ class UpRule:
                 return False
             else:
                 return True
+
+    @classmethod
+    def SucessorState(cls, state):
+        if cls.precond(state):
+            with state.dat as mat:
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] - 1][state.zIdx[1]]
+                nmat[state.zIdx[0] - 1][state.zIdx[1]] = 0
+                successorState = State(nmat)
+                return successorState
+        else:
+            print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
+            raise InvalidStateError(state)
+
+
 class LeftRule:
     name = "Left"
     @classmethod
@@ -35,6 +50,20 @@ class LeftRule:
                 return False
             else:
                 return True
+
+    @classmethod
+    def SucessorState(cls, state):
+        if cls.precond(state):
+            with state.dat as mat:
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0]][state.zIdx[1] - 1]
+                nmat[state.zIdx[0]][state.zIdx[1] - 1] = 0
+                successorState = State(nmat)
+                return successorState
+        else:
+            print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
+            raise InvalidStateError(state)
+
 class DownRule:
     name = "Down"
     @classmethod
@@ -44,6 +73,21 @@ class DownRule:
                 return False
             else:
                 return True
+
+    @classmethod
+    def SucessorState(cls, state):
+        if cls.precond(state):
+            with state.dat as mat:
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] + 1][state.zIdx[1]]
+                nmat[state.zIdx[0] + 1][state.zIdx[1]] = 0
+                successorState = State(nmat)
+                return successorState
+        else:
+            print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
+            raise InvalidStateError(state)
+
+
 class RightRule:
     name = "Right"
     @classmethod
@@ -70,7 +114,9 @@ class RightRule:
             raise InvalidStateError(state)
 
 def ApplicableRules(state):
-    pass
+    # (Up, Left, Down, Right)
+    t = (UpRule.precond(state), LeftRule.precond(state), DownRule.precond(state), RightRule.precond(state))
+    return t
 
 def SucessorState(state, rule):
     pass
@@ -78,7 +124,7 @@ def SucessorState(state, rule):
 def InitGame(n, start, goal):
     State.n = n
     try:
-        pass
+
     except InvalidStateError:
         exit(1)
 
