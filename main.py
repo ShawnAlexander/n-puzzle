@@ -4,13 +4,24 @@
 
 import json
 from sys import exit
+from collections import OrderedDict
 
 class State:
     n = 0
+    start = []
+    goal = []
+
     def __init__(self, matrix):
         self.dat = matrix
         # Coordinate of zero in the state
+        self.zIdx = ()
+        self.Update()
+    def Update(self):
         self.zIdx = tuple((x, y) for x, i in enumerate(self.dat) for y, j in enumerate(i) if j == 0)
+    def Hash(self):
+        return hash(tuple(self.dat))
+    def GetTuple(self):
+        return tuple(self.dat)
 
 class InvalidStateError(RuntimeError):
     def __init__(self, state):
@@ -25,16 +36,17 @@ class UpRule:
                 return False
             else:
                 return True
-
+    @classmethod
+    def PredecessorState(cls, state):
+        return DownRule.SucessorState(state)
     @classmethod
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                nmat = mat[:]
-                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] - 1][state.zIdx[1]]
-                nmat[state.zIdx[0] - 1][state.zIdx[1]] = 0
-                successorState = State(nmat)
-                return successorState
+                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0] - 1][state.zIdx[1]]
+                mat[state.zIdx[0] - 1][state.zIdx[1]] = 0
+                state.Update()
+                return state
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -50,16 +62,17 @@ class LeftRule:
                 return False
             else:
                 return True
-
+    @classmethod
+    def PredecessorState(cls, state):
+        return RightRule.SucessorState(state)
     @classmethod
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                nmat = mat[:]
-                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0]][state.zIdx[1] - 1]
-                nmat[state.zIdx[0]][state.zIdx[1] - 1] = 0
-                successorState = State(nmat)
-                return successorState
+                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0]][state.zIdx[1] - 1]
+                mat[state.zIdx[0]][state.zIdx[1] - 1] = 0
+                state.Update()
+                return state
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -73,20 +86,20 @@ class DownRule:
                 return False
             else:
                 return True
-
+    @classmethod
+    def PredecessorState(cls, state):
+        return UpRule.SucessorState(state)
     @classmethod
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                nmat = mat[:]
-                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] + 1][state.zIdx[1]]
-                nmat[state.zIdx[0] + 1][state.zIdx[1]] = 0
-                successorState = State(nmat)
-                return successorState
+                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0] + 1][state.zIdx[1]]
+                mat[state.zIdx[0] + 1][state.zIdx[1]] = 0
+                state.Update()
+                return state
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
-
 
 class RightRule:
     name = "Right"
@@ -99,34 +112,83 @@ class RightRule:
                 return False
             else:
                 return True
-
+    @classmethod
+    def PredecessorState(cls, state):
+        return LeftRule.SucessorState(state)
     @classmethod
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                nmat = mat[:]
-                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0]][state.zIdx[1] + 1]
-                nmat[state.zIdx[0]][state.zIdx[1] + 1] = 0
-                successorState = State(nmat)
-                return successorState
+                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0]][state.zIdx[1] + 1]
+                mat[state.zIdx[0]][state.zIdx[1] + 1] = 0
+                state.Update()
+                return state
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
 
-def ApplicableRules(state):
-    # (Up, Left, Down, Right)
-    t = (UpRule.precond(state), LeftRule.precond(state), DownRule.precond(state), RightRule.precond(state))
-    return t
-
-def SucessorState(state, rule):
+class FailObject:
     pass
 
+class Backtrack:
+    depthBound = State.n ** 2
+    r = {0: UpRule, 1: LeftRule, 2: DownRule, 3: RightRule}
+
+    #Input: A list containing one item: the initial state.
+    #Output: A list of rules
+    @classmethod
+    def RecursiveBacktrack1(cls, datalist):
+        data = datalist.pop()
+        if data in datalist:
+            return FailObject
+        elif data == State.goal:
+            return []
+        elif len(data) == 0:
+            return FailObject
+        elif len(datalist) > cls.depthBound:
+            return FailObject
+        rules = ApplicableRules(data)
+        persist = True
+        while persist:
+            if True not in rules:
+                return FailObject
+            rule = rules.index(True)
+            rules[rule] = False
+            rdata = cls.r[rule].SuccessorState(data)
+            path = cls.RecursiveBacktrack1(rdata)
+            if path != FailObject:
+                persist = False
+        datalist.append(rdata)
+        return
+
+    @classmethod
+    def IterativeBacktrack1(cls, state):
+        # Key: State    Value:
+        #
+        stackDict = OrderedDict()
+        persist = True
+        while persist:
+            st = state.GetTuple()
+            if st not in stackDict:
+                stackDict[st] = [ApplicableRules(state), ]
+
+
+def ApplicableRules(state):
+    # Up = 0, Left = 1, Down = 2, Right = 3
+    t = (UpRule.precond(state), LeftRule.precond(state), DownRule.precond(state), RightRule.precond(state))
+    tt = [x[0] for x in enumerate(t) if x[1]]
+    return tt
+
 def InitGame(n, start, goal):
-    State.n = n
     try:
+        State.n = n
+        State.start = start
+        State.goal = goal
+        print("Initial State: {}\nGoal State: {}\n".format(State.start, State.goal))
 
     except InvalidStateError:
         exit(1)
+
 
 
 def Main(puzzle):
