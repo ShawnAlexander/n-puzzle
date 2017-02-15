@@ -16,7 +16,7 @@ class State:
         # Coordinate of zero in the state
         self.zIdx = ()
         self.Update()
-    def Update(self):
+    def Update(self, ):
         self.zIdx = tuple((x, y) for x, i in enumerate(self.dat) for y, j in enumerate(i) if j == 0)
     def Hash(self):
         return hash(tuple(self.dat))
@@ -163,14 +163,17 @@ class Backtrack:
 
     @classmethod
     def IterativeBacktrack1(cls, state):
-        # Key: State    Value:
-        #
+        # Key: Matrix hash
+        # Value: [Available moves, Predecessor move applied]
+
         stackDict = OrderedDict()
         persist = True
         while persist:
             st = state.GetTuple()
-            if st not in stackDict:
-                stackDict[st] = [ApplicableRules(state), ]
+            if st in stackDict:
+                continue
+
+            stackDict[st] = [ApplicableRules(state), ]
 
 
 def ApplicableRules(state):
