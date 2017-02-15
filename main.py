@@ -4,7 +4,6 @@
 
 import json
 from sys import exit
-from collections import OrderedDict
 
 class State:
     n = 0
@@ -13,15 +12,27 @@ class State:
 
     def __init__(self, matrix):
         self.dat = matrix
-        # Coordinate of zero in the state
         self.zIdx = ()
+        self.rules = ApplicableRules(self)
         self.Update()
-    def Update(self, ):
-        self.zIdx = tuple((x, y) for x, i in enumerate(self.dat) for y, j in enumerate(i) if j == 0)
-    def Hash(self):
+
+    def GetHash(self):
         return hash(tuple(self.dat))
-    def GetTuple(self):
-        return tuple(self.dat)
+
+    def GetMat(self):
+        return self.dat
+
+    def Update(self):
+        self.zIdx = tuple((x, y) for x, i in enumerate(self.dat) for y, j in enumerate(i) if j == 0)
+
+    def RuleCount(self):
+        return len(self.rules)
+
+    def GetNextRule(self):
+        if len(self.rules) > 0:
+            return self.rules.pop()
+        else:
+            return FailObject
 
 class InvalidStateError(RuntimeError):
     def __init__(self, state):
@@ -43,10 +54,11 @@ class UpRule:
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0] - 1][state.zIdx[1]]
-                mat[state.zIdx[0] - 1][state.zIdx[1]] = 0
-                state.Update()
-                return state
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] - 1][state.zIdx[1]]
+                nmat[state.zIdx[0] - 1][state.zIdx[1]] = 0
+                nstate = State(nmat)
+                return nstate
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -69,10 +81,11 @@ class LeftRule:
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0]][state.zIdx[1] - 1]
-                mat[state.zIdx[0]][state.zIdx[1] - 1] = 0
-                state.Update()
-                return state
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0]][state.zIdx[1] - 1]
+                nmat[state.zIdx[0]][state.zIdx[1] - 1] = 0
+                nstate = State(nmat)
+                return nstate
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -93,10 +106,11 @@ class DownRule:
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0] + 1][state.zIdx[1]]
-                mat[state.zIdx[0] + 1][state.zIdx[1]] = 0
-                state.Update()
-                return state
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0] + 1][state.zIdx[1]]
+                nmat[state.zIdx[0] + 1][state.zIdx[1]] = 0
+                nstate = State(nmat)
+                return nstate
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -119,10 +133,11 @@ class RightRule:
     def SucessorState(cls, state):
         if cls.precond(state):
             with state.dat as mat:
-                mat[state.zIdx[0]][state.zIdx[1]] = mat[state.zIdx[0]][state.zIdx[1] + 1]
-                mat[state.zIdx[0]][state.zIdx[1] + 1] = 0
-                state.Update()
-                return state
+                nmat = mat[:]
+                nmat[state.zIdx[0]][state.zIdx[1]] = nmat[state.zIdx[0]][state.zIdx[1] + 1]
+                nmat[state.zIdx[0]][state.zIdx[1] + 1] = 0
+                nstate = State(nmat)
+                return nstate
         else:
             print("Error! {} rule cannot be applied to an invalid state!\n".format(cls.name))
             raise InvalidStateError(state)
@@ -163,17 +178,24 @@ class Backtrack:
 
     @classmethod
     def IterativeBacktrack1(cls, state):
-        # Key: Matrix hash
-        # Value: [Available moves, Predecessor move applied]
+        pathSet = set(state)
+        pathList = [state]
+        while len(pathList) > 0:
+            if pathList[-1].GetMat() == State.goal:
+                return pathList
+            if pathList[-1].RuleCount() > 0:
+                ruleNum = pathList[-1].GetNextRule()
+                successor = cls.r[ruleNum].SucessorState(pathList[-1])
+                if successor in pathSet:
+                    continue
+                else:
+                    pathList.append(successor)
+                    pathSet.add(successor)
+            else:
+                # Pop state from stack
+                # Remove state from set
 
-        stackDict = OrderedDict()
-        persist = True
-        while persist:
-            st = state.GetTuple()
-            if st in stackDict:
-                continue
 
-            stackDict[st] = [ApplicableRules(state), ]
 
 
 def ApplicableRules(state):
